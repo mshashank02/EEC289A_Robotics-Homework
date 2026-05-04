@@ -1,0 +1,313 @@
+{
+  "checkpoint_dir": "/home/shashank/notebook_work/course_repo/artifacts/run_baseline/best_checkpoint",
+  "stage_name": "stage_2",
+  "num_episodes": 9,
+  "episode_length_steps": 1500,
+  "episode_lengths_realized": [
+    1500,
+    1500,
+    1500,
+    1500,
+    1500,
+    1500,
+    434,
+    1500,
+    1500
+  ],
+  "episode_labels": [
+    "forward_low",
+    "forward_high",
+    "lateral_left_low",
+    "lateral_left_high",
+    "yaw_left_low",
+    "yaw_left_high",
+    "forward_turn_left",
+    "combined_left_low",
+    "combined_left_high"
+  ],
+  "episode_manifest": [
+    {
+      "episode_id": 0,
+      "episode_label": "forward_low",
+      "segments": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.6,
+          0.0,
+          0.0
+        ],
+        [
+          0.6,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "episode_id": 1,
+      "episode_label": "forward_high",
+      "segments": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.8,
+          0.0,
+          0.0
+        ],
+        [
+          0.8,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "episode_id": 2,
+      "episode_label": "lateral_left_low",
+      "segments": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.3,
+          0.0
+        ],
+        [
+          0.0,
+          0.3,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "episode_id": 3,
+      "episode_label": "lateral_left_high",
+      "segments": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.4,
+          0.0
+        ],
+        [
+          0.0,
+          0.4,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "episode_id": 4,
+      "episode_label": "yaw_left_low",
+      "segments": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.6
+        ],
+        [
+          0.0,
+          0.0,
+          0.6
+        ],
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "episode_id": 5,
+      "episode_label": "yaw_left_high",
+      "segments": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.8
+        ],
+        [
+          0.0,
+          0.0,
+          0.8
+        ],
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "episode_id": 6,
+      "episode_label": "forward_turn_left",
+      "segments": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.6,
+          0.0,
+          0.6
+        ],
+        [
+          0.6,
+          0.0,
+          0.6
+        ],
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "episode_id": 7,
+      "episode_label": "combined_left_low",
+      "segments": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.6,
+          0.2,
+          0.6
+        ],
+        [
+          0.6,
+          0.2,
+          0.6
+        ],
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "episode_id": 8,
+      "episode_label": "combined_left_high",
+      "segments": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.6,
+          0.31000000000000005,
+          0.6
+        ],
+        [
+          0.6,
+          0.35000000000000003,
+          0.6
+        ],
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ]
+    }
+  ],
+  "rollout_npz": "/home/shashank/notebook_work/course_repo/artifacts/custom_eval_bundle_all_videos_1/rollout_custom_eval.npz",
+  "rendered_videos": [
+    {
+      "episode_id": 0,
+      "episode_label": "forward_low",
+      "video_path": "/home/shashank/notebook_work/course_repo/artifacts/custom_eval_bundle_all_videos_1/custom_eval_episode00_forward_low.mp4"
+    },
+    {
+      "episode_id": 1,
+      "episode_label": "forward_high",
+      "video_path": "/home/shashank/notebook_work/course_repo/artifacts/custom_eval_bundle_all_videos_1/custom_eval_episode01_forward_high.mp4"
+    },
+    {
+      "episode_id": 2,
+      "episode_label": "lateral_left_low",
+      "video_path": "/home/shashank/notebook_work/course_repo/artifacts/custom_eval_bundle_all_videos_1/custom_eval_episode02_lateral_left_low.mp4"
+    },
+    {
+      "episode_id": 3,
+      "episode_label": "lateral_left_high",
+      "video_path": "/home/shashank/notebook_work/course_repo/artifacts/custom_eval_bundle_all_videos_1/custom_eval_episode03_lateral_left_high.mp4"
+    },
+    {
+      "episode_id": 4,
+      "episode_label": "yaw_left_low",
+      "video_path": "/home/shashank/notebook_work/course_repo/artifacts/custom_eval_bundle_all_videos_1/custom_eval_episode04_yaw_left_low.mp4"
+    },
+    {
+      "episode_id": 5,
+      "episode_label": "yaw_left_high",
+      "video_path": "/home/shashank/notebook_work/course_repo/artifacts/custom_eval_bundle_all_videos_1/custom_eval_episode05_yaw_left_high.mp4"
+    },
+    {
+      "episode_id": 6,
+      "episode_label": "forward_turn_left",
+      "video_path": "/home/shashank/notebook_work/course_repo/artifacts/custom_eval_bundle_all_videos_1/custom_eval_episode06_forward_turn_left.mp4"
+    },
+    {
+      "episode_id": 7,
+      "episode_label": "combined_left_low",
+      "video_path": "/home/shashank/notebook_work/course_repo/artifacts/custom_eval_bundle_all_videos_1/custom_eval_episode07_combined_left_low.mp4"
+    },
+    {
+      "episode_id": 8,
+      "episode_label": "combined_left_high",
+      "video_path": "/home/shashank/notebook_work/course_repo/artifacts/custom_eval_bundle_all_videos_1/custom_eval_episode08_combined_left_high.mp4"
+    }
+  ],
+  "video_path": "/home/shashank/notebook_work/course_repo/artifacts/custom_eval_bundle_all_videos_1/custom_eval_episode00_forward_low.mp4"
+}
