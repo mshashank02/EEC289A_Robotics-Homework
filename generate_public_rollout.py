@@ -47,6 +47,7 @@ def parse_args() -> argparse.Namespace:
         help="Optional manual override for benchmark episode length.",
     )
     parser.add_argument("--render-first-episode", action="store_true", help="Render the first benchmark episode.")
+    parser.add_argument("--render-all-episodes", action="store_true", help="Render and save every benchmark episode.")
     parser.add_argument("--render-width", type=int, default=960, help="Rendered video width.")
     parser.add_argument("--render-height", type=int, default=540, help="Rendered video height.")
     parser.add_argument("--render-camera", type=str, default="track", help="Camera name used for MuJoCo rendering.")
@@ -111,7 +112,7 @@ def main() -> None:
     joint_torques = []
     joint_velocities = []
     foot_slip_speed = []
-    first_episode_trajectory = []
+    render_requests: list[tuple[int, str, list[object]]] = []
 
     safe_ranges = config["public_eval"]["safe_command_ranges"]
     rng = jax.random.PRNGKey(int(config["seed"]) + 42)
@@ -121,10 +122,11 @@ def main() -> None:
         rng, reset_key = jax.random.split(rng)
         state = reset_fn(reset_key)
         commands = public_command_script(safe_ranges, episode_idx)
+        label = public_command_episode_label(episode_idx)
         state = _force_command(state, np.asarray(commands[0], dtype=np.float32), jax)
 
-        if episode_idx == 0 and args.render_first_episode:
-            first_episode_trajectory = [state]
+        should_render = bool(args.render_all_episodes) or (episode_idx == 0 and args.render_first_episode)
+        trajectory = [state] if should_render else []
 
         steps_in_this_episode = 0
         for step_idx in range(episode_length):
@@ -149,13 +151,15 @@ def main() -> None:
             fell.append(done)
 
             steps_in_this_episode += 1
-            if episode_idx == 0 and args.render_first_episode:
-                first_episode_trajectory.append(state)
+            if should_render:
+                trajectory.append(state)
 
             if done:
                 break
 
         episode_lengths.append(steps_in_this_episode)
+        if should_render:
+            render_requests.append((episode_idx, label, trajectory))
 
     rollout_npz = output_dir / "rollout_public_eval.npz"
     np.savez(
@@ -181,16 +185,21 @@ def main() -> None:
         "rollout_npz": str(rollout_npz),
     }
 
-    if args.render_first_episode and first_episode_trajectory:
-        video_path = output_dir / "public_eval_episode0.mp4"
+    rendered_videos = []
+    for episode_idx, label, trajectory in render_requests:
+        video_path = output_dir / f"public_eval_episode{episode_idx:02d}_{label}.mp4"
         frames = env.render(
-            first_episode_trajectory,
+            trajectory,
             height=int(args.render_height),
             width=int(args.render_width),
             camera=args.render_camera,
         )
         media.write_video(video_path, frames, fps=int(round(1.0 / env.dt)))
-        summary["video_path"] = str(video_path)
+        rendered_videos.append({"episode_id": episode_idx, "episode_label": label, "video_path": str(video_path)})
+
+    if rendered_videos:
+        summary["rendered_videos"] = rendered_videos
+        summary["video_path"] = rendered_videos[0]["video_path"]
 
     save_json(output_dir / "rollout_summary.json", summary)
     print(json.dumps(summary, indent=2, ensure_ascii=False))
