@@ -565,13 +565,33 @@ class Joystick(go2_base.Go2Env):
         2. widen the stage_2 sampling range toward `self._student_stage2_goal_*`
         3. increase the probability of non-zero `vy` and `yaw_rate` commands
         """
-        del current_command
-        return self._cmd_min, self._cmd_max, self._cmd_b
+        goal_extent = jp.maximum(
+            jp.maximum(jp.abs(self._student_stage2_goal_min), jp.abs(self._student_stage2_goal_max)),
+            1e-6,
+        )
+        command_activity = jp.clip(jp.abs(current_command) / goal_extent, 0.0, 1.0)
+        non_forward_activity = jp.maximum(command_activity[1], command_activity[2])
+
+        # Keep stage_2 easier than the final target near standstill, but ramp
+        # quickly toward the broader goal profile once the robot is already
+        # moving or turning.
+        blend = jp.clip(0.6 + 0.2 * command_activity[0] + 0.2 * non_forward_activity, 0.6, 1.0)
+        cmd_min = self._cmd_min + blend * (self._student_stage2_goal_min - self._cmd_min)
+        cmd_max = self._cmd_max + blend * (self._student_stage2_goal_max - self._cmd_max)
+        cmd_keep_prob = self._cmd_b + blend * (self._student_stage2_goal_b - self._cmd_b)
+        return cmd_min, cmd_max, jp.clip(cmd_keep_prob, 0.0, 1.0)
 
     def sample_command(self, rng: jax.Array, current_command: jax.Array) -> jax.Array:
-        rng, y_rng, w_rng, z_rng = jax.random.split(rng, 4)
+        rng, y_rng, w_rng, z_rng, couple_rng = jax.random.split(rng, 5)
         cmd_min, cmd_max, cmd_keep_prob = self._command_sampling_profile(current_command)
         candidate = jax.random.uniform(y_rng, shape=(3,), minval=cmd_min, maxval=cmd_max)
         active_mask = jax.random.bernoulli(z_rng, cmd_keep_prob, shape=(3,))
+        if self._command_stage_name == "stage_2":
+            # Preserve some single-axis samples, but regularly couple lateral
+            # and yaw commands so training includes true multi-axis tracking.
+            couple_turn_channels = jax.random.bernoulli(couple_rng, 0.5)
+            turn_pair_active = couple_turn_channels & (active_mask[1] | active_mask[2])
+            active_mask = active_mask.at[1].set(active_mask[1] | turn_pair_active)
+            active_mask = active_mask.at[2].set(active_mask[2] | turn_pair_active)
         blend_mask = jax.random.bernoulli(w_rng, 0.5, shape=(3,))
         return current_command - blend_mask * (current_command - candidate * active_mask)
