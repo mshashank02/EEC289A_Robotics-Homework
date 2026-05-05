@@ -67,13 +67,13 @@ def default_config() -> config_dict.ConfigDict:
             scales=config_dict.create(
                 # Task terms
                 tracking_lin_vel=1.0,
-                tracking_ang_vel=0.5,
+                tracking_ang_vel=1.0,
                 # Stability terms
                 lin_vel_z=-0.5,
                 ang_vel_xy=-0.05,
                 orientation=-5.0,
                 dof_pos_limits=-1.0,
-                pose=0.5,
+                pose=0.2,
                 termination=-1.0,
                 stand_still=-1.0,
                 # Smoothness / efficiency terms
@@ -409,7 +409,7 @@ class Joystick(go2_base.Go2Env):
             "orientation": self._cost_orientation(self.get_upvector(data)),
             "stand_still": self._cost_stand_still(info["command"], data.qpos[7:]),
             "termination": self._cost_termination(done),
-            "pose": self._reward_pose(data.qpos[7:]),
+            "pose": self._reward_pose(data.qpos[7:], info["command"]),
             "torques": self._cost_torques(data.actuator_force),
             "action_rate": self._cost_action_rate(action, info["last_act"], info["last_last_act"]),
             "energy": self._cost_energy(data.qvel[6:], data.actuator_force),
@@ -452,9 +452,16 @@ class Joystick(go2_base.Go2Env):
     def _cost_termination(self, done: jax.Array) -> jax.Array:
         return done
 
-    def _reward_pose(self, qpos: jax.Array) -> jax.Array:
+    def _reward_pose(self, qpos: jax.Array, commands: jax.Array) -> jax.Array:
         weight = jp.array([1.0, 1.0, 0.1] * 4)
-        return jp.exp(-jp.sum(jp.square(qpos - self._default_pose) * weight))
+        pose_reward = jp.exp(-jp.sum(jp.square(qpos - self._default_pose) * weight))
+
+        # Keep a stabilizing nominal-pose preference near standstill, but let
+        # the policy deviate more when lateral / turning commands are active.
+        command_scale = jp.array([0.6, 0.2, 0.6])
+        maneuver_level = jp.clip(jp.linalg.norm(commands / command_scale), 0.0, 1.5)
+        pose_gate = jp.clip(1.0 - 0.7 * maneuver_level, 0.15, 1.0)
+        return pose_reward * pose_gate
 
     # --- Smoothness and efficiency ----------------------------------------
 
