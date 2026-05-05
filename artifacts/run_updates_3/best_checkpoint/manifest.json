@@ -1,0 +1,8 @@
+{
+  "selection_method": "best_eval_reward",
+  "selected_step": 6553600,
+  "selected_eval_reward": 28.497520446777344,
+  "source_checkpoint_dir": "/home/shashank/notebook_work/course_repo/artifacts/run_updates_3/stage_2/checkpoints/000006553600",
+  "exported_checkpoint_dir": "/home/shashank/notebook_work/course_repo/artifacts/run_updates_3/best_checkpoint",
+  "exported_at_unix": 1777953574.4241989
+}
