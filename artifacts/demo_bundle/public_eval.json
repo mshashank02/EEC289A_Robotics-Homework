@@ -3,35 +3,35 @@
   "robot": "Go2",
   "environment_name": "Go2JoystickFlatTerrain",
   "stage_name": "stage_2",
-  "checkpoint_dir": "/home/shashank/notebook_work/course_repo/artifacts/run_updates_5/best_checkpoint",
+  "checkpoint_dir": "/home/shashank/notebook_work/course_repo/artifacts/run_updates_6/best_checkpoint",
   "num_steps": 750,
   "metrics": {
-    "velocity_tracking_error": 0.10207094252109528,
-    "yaw_tracking_error": 0.060488954186439514,
+    "velocity_tracking_error": 0.05896987020969391,
+    "yaw_tracking_error": 0.057626668363809586,
     "fall_rate": 0.0,
-    "energy_proxy": 20.864770889282227,
-    "foot_slip_proxy": 0.18436738848686218
+    "energy_proxy": 22.237911224365234,
+    "foot_slip_proxy": 0.22874145209789276
   },
   "normalized_scores": {
-    "velocity_tracking_error": 0.9940830213682993,
+    "velocity_tracking_error": 1.0,
     "yaw_tracking_error": 1.0,
     "fall_rate": 1.0,
-    "energy_proxy": 0.5979759097099304,
-    "foot_slip_proxy": 0.0868478417396546
+    "energy_proxy": 0.5550652742385864,
+    "foot_slip_proxy": 0.0
   },
-  "course_composite_score": 0.8463102281093599,
+  "course_composite_score": 0.833259791135788,
   "rollout_summary": {
     "video_path": "/home/shashank/notebook_work/course_repo/artifacts/demo_bundle/demo.mp4",
     "rollout_npz": "/home/shashank/notebook_work/course_repo/artifacts/demo_bundle/rollout_public_eval.npz",
     "num_steps_simulated": 750,
     "terminated_early": false,
     "done_step": null,
-    "x_distance_m": -2.2952327728271484,
-    "y_offset_m": -0.7005199193954468,
-    "final_base_height_m": 0.3593141734600067,
+    "x_distance_m": -2.956724166870117,
+    "y_offset_m": -0.8815906047821045,
+    "final_base_height_m": 0.3614138066768646,
     "mean_command_vx": 0.2500000298023224,
-    "mean_measured_vx": 0.16016587615013123,
-    "mean_abs_yaw_error": 0.060488954186439514,
+    "mean_measured_vx": 0.20581115782260895,
+    "mean_abs_yaw_error": 0.057626668363809586,
     "demo_segments": [
       [
         0.0,
