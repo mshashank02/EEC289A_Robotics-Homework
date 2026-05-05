@@ -425,7 +425,17 @@ class Joystick(go2_base.Go2Env):
     def _reward_tracking_lin_vel(self, commands: jax.Array, local_vel: jax.Array) -> jax.Array:
         vx_error = jp.square(commands[0] - local_vel[0])
         vy_error = jp.square(commands[1] - local_vel[1])
-        lin_vel_error = 0.5 * vx_error + 2.0 * vy_error
+        abs_vx = jp.abs(commands[0])
+        abs_vy = jp.abs(commands[1])
+        lateral_ratio = abs_vy / (abs_vx + abs_vy + 1e-6)
+
+        # When the commanded motion is mostly lateral, punish vy tracking error
+        # much more strongly so "standing safely" is no longer an attractive
+        # solution. When the command is mostly forward, keep a milder forward
+        # bias to preserve straight-line locomotion quality.
+        vx_weight = 0.3 + 0.7 * (1.0 - lateral_ratio)
+        vy_weight = 1.0 + 3.0 * lateral_ratio
+        lin_vel_error = vx_weight * vx_error + vy_weight * vy_error
         return jp.exp(-lin_vel_error / self._config.reward_config.tracking_sigma)
 
     def _reward_tracking_ang_vel(self, commands: jax.Array, ang_vel: jax.Array) -> jax.Array:
