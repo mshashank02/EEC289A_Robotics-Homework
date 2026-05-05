@@ -575,29 +575,52 @@ class Joystick(go2_base.Go2Env):
         yaw_activity = command_activity[2]
         non_forward_activity = jp.maximum(vy_activity, yaw_activity)
         total_activity = jp.maximum(vx_activity, non_forward_activity)
-        near_standstill = total_activity < 0.1
+        near_standstill = total_activity < 0.08
+        lateral_mode = (vy_activity > 0.10) & (vy_activity >= yaw_activity) & (vy_activity > vx_activity + 0.05)
+        yaw_mode = (yaw_activity > 0.10) & (yaw_activity > vy_activity) & (yaw_activity > vx_activity + 0.05)
+        combined_mode = (vx_activity > 0.08) & (non_forward_activity > 0.10)
+        forward_mode = vx_activity > (non_forward_activity + 0.10)
 
-        # Blend toward the broader stage-2 goal profile, but bias stage-2 away
-        # from always-on forward motion. Near standstill, give lateral / yaw
-        # channels more chance to become active so the policy sees true
-        # non-forward commands during training.
-        blend = jp.clip(0.75 + 0.15 * non_forward_activity - 0.10 * vx_activity, 0.65, 1.0)
-        cmd_min = self._cmd_min + blend * (self._student_stage2_goal_min - self._cmd_min)
-        cmd_max = self._cmd_max + blend * (self._student_stage2_goal_max - self._cmd_max)
-        cmd_keep_prob = self._cmd_b + blend * (self._student_stage2_goal_b - self._cmd_b)
+        explore_min = jp.array([-0.05, self._student_stage2_goal_min[1], self._student_stage2_goal_min[2]])
+        explore_max = jp.array([0.18, self._student_stage2_goal_max[1], self._student_stage2_goal_max[2]])
+        explore_keep_prob = jp.array([0.10, 0.97, 0.97])
 
-        standstill_keep_prob = jp.array([0.35, 0.95, 0.95])
-        non_forward_keep_prob = jp.array(
-            [
-                jp.maximum(0.25, 0.55 - 0.30 * non_forward_activity),
-                jp.minimum(1.0, cmd_keep_prob[1] + 0.10),
-                jp.minimum(1.0, cmd_keep_prob[2] + 0.10),
-            ]
-        )
-        cmd_keep_prob = jp.where(near_standstill, standstill_keep_prob, non_forward_keep_prob)
+        forward_min = jp.array([self._cmd_min[0], -0.12, -0.35])
+        forward_max = jp.array([self._student_stage2_goal_max[0], 0.12, 0.35])
+        forward_keep_prob = jp.array([0.35, 0.70, 0.70])
 
-        cmd_min = cmd_min.at[0].set(jp.maximum(cmd_min[0], -0.35))
-        cmd_max = cmd_max.at[0].set(jp.minimum(cmd_max[0], 0.65))
+        lateral_min = jp.array([-0.05, self._student_stage2_goal_min[1], -0.10])
+        lateral_max = jp.array([0.10, self._student_stage2_goal_max[1], 0.10])
+        lateral_keep_prob = jp.array([0.08, 0.99, 0.18])
+
+        yaw_min = jp.array([-0.05, -0.10, self._student_stage2_goal_min[2]])
+        yaw_max = jp.array([0.10, 0.10, self._student_stage2_goal_max[2]])
+        yaw_keep_prob = jp.array([0.08, 0.18, 0.99])
+
+        combined_min = jp.array([-0.10, self._student_stage2_goal_min[1], self._student_stage2_goal_min[2]])
+        combined_max = jp.array([0.25, self._student_stage2_goal_max[1], self._student_stage2_goal_max[2]])
+        combined_keep_prob = jp.array([0.18, 0.92, 0.92])
+
+        cmd_min = jp.where(forward_mode, forward_min, explore_min)
+        cmd_max = jp.where(forward_mode, forward_max, explore_max)
+        cmd_keep_prob = jp.where(forward_mode, forward_keep_prob, explore_keep_prob)
+
+        cmd_min = jp.where(combined_mode, combined_min, cmd_min)
+        cmd_max = jp.where(combined_mode, combined_max, cmd_max)
+        cmd_keep_prob = jp.where(combined_mode, combined_keep_prob, cmd_keep_prob)
+
+        cmd_min = jp.where(lateral_mode, lateral_min, cmd_min)
+        cmd_max = jp.where(lateral_mode, lateral_max, cmd_max)
+        cmd_keep_prob = jp.where(lateral_mode, lateral_keep_prob, cmd_keep_prob)
+
+        cmd_min = jp.where(yaw_mode, yaw_min, cmd_min)
+        cmd_max = jp.where(yaw_mode, yaw_max, cmd_max)
+        cmd_keep_prob = jp.where(yaw_mode, yaw_keep_prob, cmd_keep_prob)
+
+        cmd_min = jp.where(near_standstill, explore_min, cmd_min)
+        cmd_max = jp.where(near_standstill, explore_max, cmd_max)
+        cmd_keep_prob = jp.where(near_standstill, explore_keep_prob, cmd_keep_prob)
+
         return cmd_min, cmd_max, jp.clip(cmd_keep_prob, 0.0, 1.0)
 
     def sample_command(self, rng: jax.Array, current_command: jax.Array) -> jax.Array:
