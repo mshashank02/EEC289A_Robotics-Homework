@@ -101,6 +101,48 @@ def custom_command_episode_label(episode_idx: int) -> str:
     return CUSTOM_EPISODE_LABELS[episode_idx % len(CUSTOM_EPISODE_LABELS)]
 
 
+def _configured_custom_manifest(config: dict[str, Any]) -> list[dict[str, Any]] | None:
+    rollout_cfg = config.get("custom_rollout_demo")
+    if not rollout_cfg:
+        return None
+    episodes = rollout_cfg.get("episodes", [])
+    if not episodes:
+        return None
+
+    manifest: list[dict[str, Any]] = []
+    for idx, episode in enumerate(episodes):
+        manifest.append(
+            {
+                "episode_id": idx,
+                "episode_label": str(episode["episode_label"]),
+                "segments": [[float(x) for x in segment] for segment in episode["segments"]],
+            }
+        )
+    return manifest
+
+
+def resolve_custom_rollout_manifest(config: dict[str, Any]) -> list[dict[str, Any]]:
+    configured = _configured_custom_manifest(config)
+    if configured is not None:
+        return configured
+    return build_custom_eval_manifest(config)
+
+
+def resolve_custom_rollout_labels(config: dict[str, Any]) -> tuple[str, ...]:
+    manifest = resolve_custom_rollout_manifest(config)
+    return tuple(str(item["episode_label"]) for item in manifest)
+
+
+def resolve_custom_rollout_segments(config: dict[str, Any], episode_idx: int) -> list[list[float]]:
+    manifest = resolve_custom_rollout_manifest(config)
+    return [[float(x) for x in segment] for segment in manifest[episode_idx % len(manifest)]["segments"]]
+
+
+def resolve_custom_rollout_label(config: dict[str, Any], episode_idx: int) -> str:
+    labels = resolve_custom_rollout_labels(config)
+    return labels[episode_idx % len(labels)]
+
+
 def build_custom_eval_manifest(config: dict[str, Any]) -> list[dict[str, Any]]:
     """Return the full list of custom analysis episodes in readable form."""
     safe_ranges = config["public_eval"]["safe_command_ranges"]
@@ -120,4 +162,8 @@ __all__ = [
     "command_for_step",
     "custom_command_episode_label",
     "custom_command_script",
+    "resolve_custom_rollout_label",
+    "resolve_custom_rollout_labels",
+    "resolve_custom_rollout_manifest",
+    "resolve_custom_rollout_segments",
 ]

@@ -27,6 +27,10 @@ from custom_benchmark_specs import (
     command_for_step,
     custom_command_episode_label,
     custom_command_script,
+    resolve_custom_rollout_label,
+    resolve_custom_rollout_labels,
+    resolve_custom_rollout_manifest,
+    resolve_custom_rollout_segments,
 )
 from test_policy import load_policy_with_workaround
 
@@ -45,12 +49,7 @@ def parse_args() -> argparse.Namespace:
         default="stage_2",
         help="Which stage config to use when building the eval environment.",
     )
-    parser.add_argument(
-        "--num-episodes",
-        type=int,
-        default=len(CUSTOM_EPISODE_LABELS),
-        help="Number of custom benchmark episodes to run.",
-    )
+    parser.add_argument("--num-episodes", type=int, default=None, help="Number of custom benchmark episodes to run.")
     parser.add_argument(
         "--episode-length-steps",
         type=int,
@@ -130,11 +129,15 @@ def main() -> None:
     rng = jax.random.PRNGKey(int(config["seed"]) + 4242)
     episode_lengths = []
 
-    for episode_idx in range(int(args.num_episodes)):
+    rollout_manifest = resolve_custom_rollout_manifest(config)
+    rollout_labels = resolve_custom_rollout_labels(config)
+    num_episodes = int(args.num_episodes) if args.num_episodes is not None else len(rollout_manifest)
+
+    for episode_idx in range(num_episodes):
         rng, reset_key = jax.random.split(rng)
         state = reset_fn(reset_key)
-        commands = custom_command_script(safe_ranges, episode_idx)
-        label = custom_command_episode_label(episode_idx)
+        commands = resolve_custom_rollout_segments(config, episode_idx)
+        label = resolve_custom_rollout_label(config, episode_idx)
         state = _force_command(state, np.asarray(commands[0], dtype=np.float32), jax)
 
         should_render = bool(args.render_episodes_every) or (episode_idx == 0 and args.render_first_episode)
@@ -192,11 +195,11 @@ def main() -> None:
     summary = {
         "checkpoint_dir": str(args.checkpoint_dir.resolve()),
         "stage_name": args.stage_name,
-        "num_episodes": int(args.num_episodes),
+        "num_episodes": num_episodes,
         "episode_length_steps": episode_length,
         "episode_lengths_realized": episode_lengths,
-        "episode_labels": [custom_command_episode_label(idx) for idx in range(int(args.num_episodes))],
-        "episode_manifest": build_custom_eval_manifest(config)[: int(args.num_episodes)],
+        "episode_labels": list(rollout_labels[:num_episodes]),
+        "episode_manifest": rollout_manifest[:num_episodes],
         "rollout_npz": str(rollout_npz),
     }
 

@@ -1,0 +1,110 @@
+{\rtf1\ansi\deff0
+{\fonttbl
+{\f0 Times New Roman;}
+}
+\paperw12240\paperh15840\margl1440\margr1440\margt1440\margb1440
+\fs24
+\pard\qc\b\f0\fs32 Sim-to-Real Quadruped Locomotion Report Draft\par
+\pard\sa200\sb200\b0\fs24
+
+\b Problem Setup and Baseline Behavior\par
+\b0
+This project uses the course Go2JoystickFlatTerrain task built on MuJoCo Playground, Brax PPO, and MJX. The policy observes a 48D actor state containing local linear velocity, gyro, gravity, joint position error, joint velocity, last action, and the commanded planar motion [vx, vy, yaw\_rate]. The action is a 12D joint-position offset added to the nominal standing pose and applied through a PD controller. During training, the critic also receives privileged simulator-only signals.\par
+
+The course curriculum is split into two stages. Stage 1 is a forward-only warm start, while stage 2 expands the command distribution to include backward motion, lateral motion, and yaw. I restored the stage 1 checkpoint before stage 2, kept domain randomization enabled, and trained stage 2 with PPO using 1024 environments and 128 eval environments. The final successful run also used a runtime override that extended stage 2 from the default 5M timesteps to 10M timesteps.\par
+
+The baseline failure mode was clear: the policy could walk forward and remain upright, but pure lateral commands were mostly ignored. In the early custom evaluation bundle (artifacts/custom\_eval\_bundle\_all\_videos\_1/custom\_eval.json), the lateral episodes commanded vy=0.15 and vy=0.20, but the robot only achieved mean measured lateral velocities of about -0.0009 and -0.0017. The same run also struggled on combined commands and even fell once during a forward-turn episode. This is consistent with a policy that learned a safe low-motion strategy for non-forward commands rather than learning a true lateral gait.\par
+
+The baseline custom metrics were:\par
+\par
+Early baseline custom eval: velocity error 0.1394, vy error 0.0825, yaw error 0.1916, fall rate 0.1111, energy 12.38, foot slip 0.0942.\par
+Final custom eval: velocity error 0.0460, vy error 0.0197, yaw error 0.0637, fall rate 0.0000, energy 20.72, foot slip 0.1911.\par
+\par
+So the main problem was not stability in general. The main problem was that the baseline did not convert lateral commands into actual sideways motion.\par
+
+\b Design Choices and Reasoning\par
+\b0
+\b 1. Curriculum and Command Distribution\par
+\b0
+The first major change was to make stage 2 actually look like stage 2. In the earlier code, stage 2 was still too close to a forward-dominant curriculum, which meant the policy could continue exploiting the stage 1 prior. I changed the stage 2 command ranges and keep probabilities in configs/course\_config.json so that vy and yaw stayed active more often, while vx became less dominant. I also added a mode-based command sampler in go2\_pg\_env/joystick.py that distinguishes between forward mode, lateral mode, yaw mode, combined mode, and near-standstill exploration.\par
+
+The goal was to make the policy see clean single-axis lateral commands often enough to learn them, while still preserving mixed-command training for the final benchmark.\par
+
+This change alone helped expose the policy to the right data distribution, but it did not fully solve the behavior problem. The robot was seeing more lateral commands, but it still preferred to respond conservatively.\par
+
+\b 2. Reward Reshaping for Lateral Motion\par
+\b0
+The more important change was reward design. The early custom logs suggested that the robot had found a loophole: for pure lateral commands, it was cheaper to stay close to the nominal pose and avoid energetic stepping than to learn a true sidestep gait. That pointed to a reward imbalance rather than a command-distribution problem alone.\par
+
+The final reward changes in go2\_pg\_env/joystick.py were:\par
+\par
+- increased tracking\_lin\_vel from 1.0 to 1.5\par
+- reduced tracking\_sigma from 0.25 in earlier iterations to 0.08 in the final run, which made tracking errors matter more sharply\par
+- changed linear tracking from a symmetric XY penalty to a lateral-biased penalty: 0.35 * vx\_error + 3.5 * vy\_error\par
+- reduced several posture and foot penalties that were suppressing sideways stepping:\par
+  orientation: -5.0 to -3.5\par
+  pose: 0.5/0.2 in earlier variants to 0.12 in the final version\par
+  feet\_clearance: -2.0 to -1.2\par
+  feet\_height: -0.2 to -0.1\par
+  feet\_slip: -0.1 to -0.06\par
+- added command-dependent gating so that when |vy| is large, the policy is allowed to tilt, deviate from the nominal pose, and tolerate some slip/clearance cost while executing a lateral maneuver\par
+
+The key design principle was: if the task demands a lateral gait, the reward should stop punishing the policy for looking less like a straight-walking gait.\par
+
+\b 3. One Failed Idea\par
+\b0
+One intermediate idea was to reshape the vx and vy weights dynamically based on the lateral ratio of the command. That seemed reasonable at first, because the reward would emphasize vy only when the command was mostly lateral. However, that change by itself was not enough and was later reverted. The policy still had strong incentives from orientation, pose, and foot penalties to remain conservative.\par
+
+The lesson was that lateral tracking is not just a command-sampling problem and not just a one-line reward-weight problem. It required coordinated changes across both the task reward and the penalties that define what the policy considers safe.\par
+
+\b Official Benchmark and Additional Evaluation\par
+\b0
+\b Official Benchmark\par
+\b0
+The public benchmark uses four episodes: forward only, lateral only, yaw only, and combined. Comparing an early benchmark bundle to the final benchmark bundle shows that tracking improved substantially:\par
+\par
+Early public eval (new\_1): velocity error 0.0961, yaw error 0.1028, fall rate 0.0000, energy 3.47, foot slip 0.0128, composite 0.9986.\par
+Final public eval (new\_5): velocity error 0.0661, yaw error 0.0798, fall rate 0.0000, energy 7.05, foot slip 0.0508, composite 0.9829.\par
+\par
+The interesting part is that the final policy tracked commands better, but its official composite score was slightly lower. This happened because the final policy was more dynamic: it moved laterally and combined commands more aggressively, which increased energy use and slip. The benchmark's thresholded normalization makes this easy to miss. In other words, the early policy looked cheap and safe, but it was not actually solving the lateral-control problem well.\par
+
+This is why I relied on additional evaluation rather than the official benchmark alone.\par
+
+\b Additional Custom Evaluation\par
+\b0
+The custom 9-episode evaluation was much more diagnostic because it broke performance down by direction and magnitude. This exposed the baseline's main weakness and made it possible to verify the fix.\par
+
+The strongest evidence is the lateral-only episodes:\par
+\par
+Lateral low: mean measured vy improved from about -0.0009 in the early run to 0.0823 in the final run.\par
+Lateral high: mean measured vy improved from about -0.0017 in the early run to 0.1256 in the final run.\par
+\par
+In the early custom run, the policy effectively did not move sideways. In the final run, it tracked lateral motion closely and consistently without falling.\par
+
+The combined-command episodes improved as well. In the final custom bundle, the high combined-left episode commanded approximately [0.336, 0.124, 0.252] and achieved mean measured values [0.308, 0.116, 0.241], which is close tracking across all three command channels.\par
+
+The final custom run also improved stability and consistency:\par
+\par
+- custom velocity tracking error improved from 0.1394 to 0.0460\par
+- custom vy tracking error improved from 0.0825 to 0.0197\par
+- custom yaw tracking error improved from 0.1916 to 0.0637\par
+- fall rate improved from 0.1111 to 0.0\par
+\par
+The stage-2 training summary also improved markedly. The early baseline stage-2 summary had eval/episode\_reward = 17.98 at the final checkpoint and average eval episode length around 896 steps, while the final run\_updates\_6 stage-2 summary reached eval/episode\_reward = 41.85 with average eval episode length 1000.0 and zero termination events in the final evaluation.\par
+
+\b Insights and Observations About Policy Behavior\par
+\b0
+The main insight from this project is that a policy can appear stable and still fail the task in an important way. The baseline robot was not crashing frequently during pure lateral commands. Instead, it was exploiting the reward by remaining near a low-motion posture, which kept energy and slip small but produced almost no sideways motion.\par
+
+The second insight is that command coverage matters, but reward balance matters more. Expanding the stage-2 command distribution was necessary because the policy needed to see lateral commands often. However, that alone did not force the policy to execute them. The real breakthrough came from making lateral errors expensive and making lateral maneuvers less over-penalized.\par
+
+The third insight is that the official benchmark can hide failure modes when its thresholds saturate. In my case, an early policy got a very high composite score even though the custom evaluation clearly showed that lateral-only motion was nearly absent. For that reason, I think the custom evaluation was more useful for development and debugging.\par
+
+Finally, there was a clear tradeoff. The final policy is more capable, but it is also more energetic and slips more because it is doing real work during lateral and combined maneuvers. For sim-to-real transfer, that tradeoff could matter: a more aggressive lateral gait may be harder to execute safely on hardware if actuator limits, latency, or contact modeling differ from simulation. On the other hand, a policy that never truly learns lateral motion is not useful for the real task either. My final design intentionally chose better task completion over minimal energy use.\par
+
+\b Conclusion\par
+\b0
+Starting from a forward-dominant baseline, I improved stage 2 in two steps: first by changing the command curriculum so that lateral and yaw commands were sampled more deliberately, and second by reshaping the reward so that true lateral motion was rewarded instead of indirectly discouraged. The final policy solved the original problem: it no longer ignored pure vy commands, it tracked combined commands well, and it eliminated the falls seen in earlier custom evaluation.\par
+
+If I had more time, the next direction I would explore is recovering some of the increased energy and slip without losing the lateral gait. The most likely approach would be a mild second-phase fine-tuning pass that keeps the final command curriculum but slightly reintroduces efficiency penalties after lateral tracking has already been learned.\par
+}
