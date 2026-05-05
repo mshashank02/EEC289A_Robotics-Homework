@@ -86,7 +86,7 @@ def default_config() -> config_dict.ConfigDict:
                 feet_slip=-0.1,
                 feet_air_time=0.1,
             ),
-            tracking_sigma=0.25,
+            tracking_sigma=0.10,
             max_foot_height=0.1,
         ),
         pert_config=config_dict.create(
@@ -423,7 +423,9 @@ class Joystick(go2_base.Go2Env):
     # --- Task rewards ------------------------------------------------------
 
     def _reward_tracking_lin_vel(self, commands: jax.Array, local_vel: jax.Array) -> jax.Array:
-        lin_vel_error = jp.sum(jp.square(commands[:2] - local_vel[:2]))
+        vx_error = jp.square(commands[0] - local_vel[0])
+        vy_error = jp.square(commands[1] - local_vel[1])
+        lin_vel_error = 0.5 * vx_error + 2.0 * vy_error
         return jp.exp(-lin_vel_error / self._config.reward_config.tracking_sigma)
 
     def _reward_tracking_ang_vel(self, commands: jax.Array, ang_vel: jax.Array) -> jax.Array:
