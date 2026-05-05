@@ -19,6 +19,9 @@
   </asset>
 
   <worldbody>
+    <camera name="overview" pos="3.2 -3.2 1.8" xyaxes="0.707 0.707 0.0 -0.331 0.331 0.883"/>
+    <camera name="side_fixed" pos="0.0 -3.5 0.9" xyaxes="1 0 0 0 0.35 0.94"/>
+    <camera name="topdown" pos="0.0 0.0 4.5" xyaxes="1 0 0 0 1 0"/>
     <geom
       name="floor"
       size="0 0 0.01"
