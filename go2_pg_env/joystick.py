@@ -66,14 +66,14 @@ def default_config() -> config_dict.ConfigDict:
         reward_config=config_dict.create(
             scales=config_dict.create(
                 # Task terms
-                tracking_lin_vel=1.0,
+                tracking_lin_vel=1.5,
                 tracking_ang_vel=1.0,
                 # Stability terms
                 lin_vel_z=-0.5,
-                ang_vel_xy=-0.05,
-                orientation=-5.0,
+                ang_vel_xy=-0.04,
+                orientation=-3.5,
                 dof_pos_limits=-1.0,
-                pose=0.2,
+                pose=0.12,
                 termination=-1.0,
                 stand_still=-1.0,
                 # Smoothness / efficiency terms
@@ -81,12 +81,12 @@ def default_config() -> config_dict.ConfigDict:
                 action_rate=-0.01,
                 energy=-0.001,
                 # Foot-behavior terms
-                feet_clearance=-2.0,
-                feet_height=-0.2,
-                feet_slip=-0.1,
+                feet_clearance=-1.2,
+                feet_height=-0.1,
+                feet_slip=-0.06,
                 feet_air_time=0.1,
             ),
-            tracking_sigma=0.10,
+            tracking_sigma=0.08,
             max_foot_height=0.1,
         ),
         pert_config=config_dict.create(
@@ -406,7 +406,7 @@ class Joystick(go2_base.Go2Env):
             "tracking_ang_vel": self._reward_tracking_ang_vel(info["command"], self.get_gyro(data)),
             "lin_vel_z": self._cost_lin_vel_z(self.get_global_linvel(data)),
             "ang_vel_xy": self._cost_ang_vel_xy(self.get_global_angvel(data)),
-            "orientation": self._cost_orientation(self.get_upvector(data)),
+            "orientation": self._cost_orientation(self.get_upvector(data), info["command"]),
             "stand_still": self._cost_stand_still(info["command"], data.qpos[7:]),
             "termination": self._cost_termination(done),
             "pose": self._reward_pose(data.qpos[7:], info["command"]),
@@ -414,7 +414,7 @@ class Joystick(go2_base.Go2Env):
             "action_rate": self._cost_action_rate(action, info["last_act"], info["last_last_act"]),
             "energy": self._cost_energy(data.qvel[6:], data.actuator_force),
             "feet_slip": self._cost_feet_slip(data, contact, info),
-            "feet_clearance": self._cost_feet_clearance(data),
+            "feet_clearance": self._cost_feet_clearance(data, info),
             "feet_height": self._cost_feet_height(info["swing_peak"], first_contact, info),
             "feet_air_time": self._reward_feet_air_time(info["feet_air_time"], first_contact, info["command"]),
             "dof_pos_limits": self._cost_joint_pos_limits(data.qpos[7:]),
@@ -425,7 +425,9 @@ class Joystick(go2_base.Go2Env):
     def _reward_tracking_lin_vel(self, commands: jax.Array, local_vel: jax.Array) -> jax.Array:
         vx_error = jp.square(commands[0] - local_vel[0])
         vy_error = jp.square(commands[1] - local_vel[1])
-        lin_vel_error = 0.5 * vx_error + 2.0 * vy_error
+        # Pure lateral tracking is the main weak spot, so make missed `vy`
+        # commands meaningfully more expensive than forward errors.
+        lin_vel_error = 0.35 * vx_error + 3.5 * vy_error
         return jp.exp(-lin_vel_error / self._config.reward_config.tracking_sigma)
 
     def _reward_tracking_ang_vel(self, commands: jax.Array, ang_vel: jax.Array) -> jax.Array:
@@ -440,8 +442,10 @@ class Joystick(go2_base.Go2Env):
     def _cost_ang_vel_xy(self, global_angvel: jax.Array) -> jax.Array:
         return jp.sum(jp.square(global_angvel[:2]))
 
-    def _cost_orientation(self, torso_zaxis: jax.Array) -> jax.Array:
-        return jp.sum(jp.square(torso_zaxis[:2]))
+    def _cost_orientation(self, torso_zaxis: jax.Array, commands: jax.Array) -> jax.Array:
+        lateral_level = jp.clip(jp.abs(commands[1]) / 0.2, 0.0, 1.0)
+        orientation_gate = 1.0 - 0.5 * lateral_level
+        return jp.sum(jp.square(torso_zaxis[:2])) * orientation_gate
 
     def _cost_joint_pos_limits(self, qpos: jax.Array) -> jax.Array:
         out_of_limits = -jp.clip(qpos - self._soft_lowers, None, 0.0)
@@ -462,7 +466,8 @@ class Joystick(go2_base.Go2Env):
         # the policy deviate more when lateral / turning commands are active.
         command_scale = jp.array([0.6, 0.2, 0.6])
         maneuver_level = jp.clip(jp.linalg.norm(commands / command_scale), 0.0, 1.5)
-        pose_gate = jp.clip(1.0 - 0.7 * maneuver_level, 0.15, 1.0)
+        lateral_level = jp.clip(jp.abs(commands[1]) / 0.2, 0.0, 1.0)
+        pose_gate = jp.clip(1.0 - 0.7 * maneuver_level - 0.35 * lateral_level, 0.05, 1.0)
         return pose_reward * pose_gate
 
     # --- Smoothness and efficiency ----------------------------------------
@@ -483,20 +488,26 @@ class Joystick(go2_base.Go2Env):
         feet_vel = data.sensordata[self._foot_linvel_sensor_adr]
         vel_xy = feet_vel[..., :2]
         vel_xy_norm_sq = jp.sum(jp.square(vel_xy), axis=-1)
-        return jp.sum(vel_xy_norm_sq * contact) * (jp.linalg.norm(info["command"]) > 0.01)
+        lateral_level = jp.clip(jp.abs(info["command"][1]) / 0.2, 0.0, 1.0)
+        slip_gate = 1.0 - 0.65 * lateral_level
+        return jp.sum(vel_xy_norm_sq * contact) * (jp.linalg.norm(info["command"]) > 0.01) * slip_gate
 
-    def _cost_feet_clearance(self, data: mjx.Data) -> jax.Array:
+    def _cost_feet_clearance(self, data: mjx.Data, info: dict[str, Any]) -> jax.Array:
         feet_vel = data.sensordata[self._foot_linvel_sensor_adr]
         vel_xy = feet_vel[..., :2]
         vel_norm = jp.sqrt(jp.linalg.norm(vel_xy, axis=-1))
         foot_pos = data.site_xpos[self._feet_site_id]
         foot_z = foot_pos[..., -1]
         delta = jp.abs(foot_z - self._config.reward_config.max_foot_height)
-        return jp.sum(delta * vel_norm)
+        lateral_level = jp.clip(jp.abs(info["command"][1]) / 0.2, 0.0, 1.0)
+        clearance_gate = 1.0 - 0.6 * lateral_level
+        return jp.sum(delta * vel_norm) * clearance_gate
 
     def _cost_feet_height(self, swing_peak: jax.Array, first_contact: jax.Array, info: dict[str, Any]) -> jax.Array:
         error = swing_peak / self._config.reward_config.max_foot_height - 1.0
-        return jp.sum(jp.square(error) * first_contact) * (jp.linalg.norm(info["command"]) > 0.01)
+        lateral_level = jp.clip(jp.abs(info["command"][1]) / 0.2, 0.0, 1.0)
+        height_gate = 1.0 - 0.6 * lateral_level
+        return jp.sum(jp.square(error) * first_contact) * (jp.linalg.norm(info["command"]) > 0.01) * height_gate
 
     def _reward_feet_air_time(self, air_time: jax.Array, first_contact: jax.Array, commands: jax.Array) -> jax.Array:
         return jp.sum((air_time - 0.1) * first_contact) * (jp.linalg.norm(commands) > 0.01)
