@@ -1,5 +1,5 @@
 {
-  "checkpoint_dir": "/home/shashank/notebook_work/course_repo/artifacts/run_baseline/best_checkpoint",
+  "checkpoint_dir": "/home/shashank/notebook_work/course_repo/artifacts/run_updates/best_checkpoint",
   "stage_name": "stage_2",
   "render_steps": 0,
   "force_cpu": false

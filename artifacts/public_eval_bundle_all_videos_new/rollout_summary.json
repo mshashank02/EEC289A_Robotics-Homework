@@ -1,0 +1,42 @@
+{
+  "checkpoint_dir": "/home/shashank/notebook_work/course_repo/artifacts/run_updates/best_checkpoint",
+  "stage_name": "stage_2",
+  "num_episodes": 4,
+  "episode_length_steps": 1500,
+  "episode_lengths_realized": [
+    1500,
+    1500,
+    1500,
+    1500
+  ],
+  "episode_labels": [
+    "forward_only",
+    "lateral_only",
+    "yaw_only",
+    "combined"
+  ],
+  "rollout_npz": "/home/shashank/notebook_work/course_repo/artifacts/public_eval_bundle_all_videos_new/rollout_public_eval.npz",
+  "rendered_videos": [
+    {
+      "episode_id": 0,
+      "episode_label": "forward_only",
+      "video_path": "/home/shashank/notebook_work/course_repo/artifacts/public_eval_bundle_all_videos_new/public_eval_episode00_forward_only.mp4"
+    },
+    {
+      "episode_id": 1,
+      "episode_label": "lateral_only",
+      "video_path": "/home/shashank/notebook_work/course_repo/artifacts/public_eval_bundle_all_videos_new/public_eval_episode01_lateral_only.mp4"
+    },
+    {
+      "episode_id": 2,
+      "episode_label": "yaw_only",
+      "video_path": "/home/shashank/notebook_work/course_repo/artifacts/public_eval_bundle_all_videos_new/public_eval_episode02_yaw_only.mp4"
+    },
+    {
+      "episode_id": 3,
+      "episode_label": "combined",
+      "video_path": "/home/shashank/notebook_work/course_repo/artifacts/public_eval_bundle_all_videos_new/public_eval_episode03_combined.mp4"
+    }
+  ],
+  "video_path": "/home/shashank/notebook_work/course_repo/artifacts/public_eval_bundle_all_videos_new/public_eval_episode00_forward_only.mp4"
+}
