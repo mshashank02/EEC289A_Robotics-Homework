@@ -214,21 +214,6 @@
     ]
   },
   "runtime_overrides": {
-    "num_envs": 1024,
-    "num_eval_envs": 128,
-    "num_evals": 5,
-    "batch_size": 256,
-    "policy_hidden_layer_sizes": [
-      256,
-      256,
-      128
-    ],
-    "value_hidden_layer_sizes": [
-      256,
-      256,
-      128
-    ],
-    "stage_1_num_timesteps": 10000000,
-    "stage_2_num_timesteps": 15000000
+    "stage_2_num_timesteps": 10000000
   }
 }

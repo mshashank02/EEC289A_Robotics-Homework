@@ -4,12 +4,12 @@
   "num_steps_simulated": 750,
   "terminated_early": false,
   "done_step": null,
-  "x_distance_m": -3.0123939514160156,
-  "y_offset_m": -0.9962352514266968,
-  "final_base_height_m": 0.36069753766059875,
+  "x_distance_m": -2.2952327728271484,
+  "y_offset_m": -0.7005199193954468,
+  "final_base_height_m": 0.3593141734600067,
   "mean_command_vx": 0.2500000298023224,
-  "mean_measured_vx": 0.2115909606218338,
-  "mean_abs_yaw_error": 0.06603383272886276,
+  "mean_measured_vx": 0.16016587615013123,
+  "mean_abs_yaw_error": 0.060488954186439514,
   "demo_segments": [
     [
       0.0,
