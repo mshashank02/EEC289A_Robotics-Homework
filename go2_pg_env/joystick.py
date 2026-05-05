@@ -570,15 +570,34 @@ class Joystick(go2_base.Go2Env):
             1e-6,
         )
         command_activity = jp.clip(jp.abs(current_command) / goal_extent, 0.0, 1.0)
-        non_forward_activity = jp.maximum(command_activity[1], command_activity[2])
+        vx_activity = command_activity[0]
+        vy_activity = command_activity[1]
+        yaw_activity = command_activity[2]
+        non_forward_activity = jp.maximum(vy_activity, yaw_activity)
+        total_activity = jp.maximum(vx_activity, non_forward_activity)
+        near_standstill = total_activity < 0.1
 
-        # Keep stage_2 easier than the final target near standstill, but ramp
-        # quickly toward the broader goal profile once the robot is already
-        # moving or turning.
-        blend = jp.clip(0.6 + 0.2 * command_activity[0] + 0.2 * non_forward_activity, 0.6, 1.0)
+        # Blend toward the broader stage-2 goal profile, but bias stage-2 away
+        # from always-on forward motion. Near standstill, give lateral / yaw
+        # channels more chance to become active so the policy sees true
+        # non-forward commands during training.
+        blend = jp.clip(0.75 + 0.15 * non_forward_activity - 0.10 * vx_activity, 0.65, 1.0)
         cmd_min = self._cmd_min + blend * (self._student_stage2_goal_min - self._cmd_min)
         cmd_max = self._cmd_max + blend * (self._student_stage2_goal_max - self._cmd_max)
         cmd_keep_prob = self._cmd_b + blend * (self._student_stage2_goal_b - self._cmd_b)
+
+        standstill_keep_prob = jp.array([0.35, 0.95, 0.95])
+        non_forward_keep_prob = jp.array(
+            [
+                jp.maximum(0.25, 0.55 - 0.30 * non_forward_activity),
+                jp.minimum(1.0, cmd_keep_prob[1] + 0.10),
+                jp.minimum(1.0, cmd_keep_prob[2] + 0.10),
+            ]
+        )
+        cmd_keep_prob = jp.where(near_standstill, standstill_keep_prob, non_forward_keep_prob)
+
+        cmd_min = cmd_min.at[0].set(jp.maximum(cmd_min[0], -0.35))
+        cmd_max = cmd_max.at[0].set(jp.minimum(cmd_max[0], 0.65))
         return cmd_min, cmd_max, jp.clip(cmd_keep_prob, 0.0, 1.0)
 
     def sample_command(self, rng: jax.Array, current_command: jax.Array) -> jax.Array:
